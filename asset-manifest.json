@@ -1,0 +1,10 @@
+{
+  "files": {
+    "main.js": "/parking/static/js/main.4cb7d732.js",
+    "index.html": "/parking/index.html",
+    "main.4cb7d732.js.map": "/parking/static/js/main.4cb7d732.js.map"
+  },
+  "entrypoints": [
+    "static/js/main.4cb7d732.js"
+  ]
+}
