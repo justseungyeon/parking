@@ -3,14 +3,17 @@ import React, { useEffect, useRef, useState } from "react";
 const NaverMapComponent = () => {
   const mapElement = useRef(null);
   const [map, setMap] = useState(null);
-  const [searchKeyword, setSearchKeyword] = useState(""); // 검색어 상태
-  const [suggestions, setSuggestions] = useState([]); // 자동완성 목록
-  const [currentLocation, setCurrentLocation] = useState(null); // 현재 위치
-  const [marker, setMarker] = useState(null); // 검색된 마커 (단 하나만 표시)
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [currentLocation, setCurrentLocation] = useState(null);
+
+  // 📌 .env에서 API 키 읽기
+  const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
+  const NAVER_SECRET_KEY = process.env.REACT_APP_NAVER_SECRET_KEY;
 
   useEffect(() => {
     const script = document.createElement("script");
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=grfapsjuvx`;
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${NAVER_CLIENT_ID}`;
     script.async = true;
     script.onload = () => {
       if (!window.naver || !window.naver.maps) {
@@ -24,7 +27,6 @@ const NaverMapComponent = () => {
       });
       setMap(newMap);
 
-      // 📌 현재 위치 가져오기
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -32,13 +34,12 @@ const NaverMapComponent = () => {
             const lng = position.coords.longitude;
             setCurrentLocation({ lat, lng });
 
-            const userMarker = new window.naver.maps.Marker({
+            new window.naver.maps.Marker({
               position: new window.naver.maps.LatLng(lat, lng),
               map: newMap,
               title: "현재 위치",
             });
 
-            // 지도 중심 이동
             newMap.setCenter(new window.naver.maps.LatLng(lat, lng));
           },
           (error) => {
@@ -48,44 +49,25 @@ const NaverMapComponent = () => {
       }
     };
     document.head.appendChild(script);
-  }, []);
+  }, [NAVER_CLIENT_ID]);
 
-  // 📌 자동완성 기능
   const handleInputChange = (e) => {
     const value = e.target.value;
     setSearchKeyword(value);
-
-    if (!value.trim()) {
-      setSuggestions([]); // 입력이 없으면 자동완성 목록 비우기
-      return;
-    }
-
-    if (window.naver && window.naver.maps && window.naver.maps.Service) {
-      window.naver.maps.Service.geocode(
-        { query: value },
-        (status, response) => {
-          if (status === window.naver.maps.Service.Status.OK && response.v2.addresses.length > 0) {
-            setSuggestions(response.v2.addresses.map((addr) => addr.jibunAddress || addr.roadAddress));
-          } else {
-            setSuggestions([]);
-          }
-        }
-      );
-    }
+    setSuggestions([]); // 지금은 Geocode 자동완성 대신 비움
   };
 
   const handleSearch = () => {
-    if (!map) return;
-    if (!searchKeyword.trim()) {
+    if (!map || !searchKeyword.trim()) {
       alert("검색어를 입력하세요.");
       return;
     }
-  
+
     fetch(`https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${searchKeyword}`, {
       method: "GET",
       headers: {
-        "X-NCP-APIGW-API-KEY-ID": "grfapsjuvx",
-        "X-NCP-APIGW-API-KEY": "v41yd8ZznN0hj3JSi6e6V8mM95rIdE54iOx7NuA1"
+        "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
+        "X-NCP-APIGW-API-KEY": NAVER_SECRET_KEY
       }
     })
       .then(response => response.json())
@@ -93,11 +75,8 @@ const NaverMapComponent = () => {
         if (data.addresses && data.addresses.length > 0) {
           const lat = data.addresses[0].y;
           const lng = data.addresses[0].x;
-  
-          // 지도 중심 이동
           map.setCenter(new window.naver.maps.LatLng(lat, lng));
-  
-          // 검색한 위치에 마커 추가
+
           new window.naver.maps.Marker({
             position: new window.naver.maps.LatLng(lat, lng),
             map: map,
@@ -109,11 +88,9 @@ const NaverMapComponent = () => {
       })
       .catch(error => console.error("Error:", error));
   };
-  
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-      {/* 📌 검색창 UI */}
       <div
         style={{
           position: "absolute",
@@ -142,43 +119,11 @@ const NaverMapComponent = () => {
             marginBottom: "5px",
           }}
         />
-        {/* 자동완성 리스트 */}
-        {suggestions.length > 0 && (
-          <ul
-            style={{
-              listStyle: "none",
-              padding: "0",
-              margin: "0",
-              background: "white",
-              border: "1px solid #ddd",
-              borderRadius: "5px",
-              maxHeight: "150px",
-              overflowY: "auto",
-              boxShadow: "0px 4px 6px rgba(0,0,0,0.1)",
-            }}
-          >
-            {suggestions.map((item, index) => (
-              <li
-                key={index}
-                onClick={() => {
-                  setSearchKeyword(item);
-                  setSuggestions([]); // 자동완성 닫기
-                  handleSearch(item); // 검색 실행
-                }}
-                style={{
-                  padding: "8px",
-                  cursor: "pointer",
-                  borderBottom: "1px solid #ddd",
-                }}
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        )}
+        <button onClick={handleSearch} style={{ padding: "8px" }}>
+          검색
+        </button>
       </div>
 
-      {/* 네이버 지도 */}
       <div ref={mapElement} style={{ width: "100%", height: "100%" }} />
     </div>
   );
