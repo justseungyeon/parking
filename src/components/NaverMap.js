@@ -4,8 +4,9 @@ import SearchBar from "./SearchBar";
 const NaverMapComponent = () => {
   const mapElement = useRef(null);
   const [map, setMap] = useState(null);
+  const [searchMarker, setSearchMarker] = useState(null);
+
   const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID;
-  const NAVER_SECRET_KEY = process.env.REACT_APP_NAVER_SECRET_KEY;
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -18,6 +19,7 @@ const NaverMapComponent = () => {
       });
       setMap(newMap);
 
+      // ✅ 현재 위치
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((position) => {
           const lat = position.coords.latitude;
@@ -34,14 +36,12 @@ const NaverMapComponent = () => {
     document.head.appendChild(script);
   }, [NAVER_CLIENT_ID]);
 
-  // 📌 검색 기능 (검색창에서 검색어 받음)
   const handleSearch = (searchKeyword) => {
     if (!map) return;
     fetch(`https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${searchKeyword}`, {
       method: "GET",
       headers: {
         "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
-        "X-NCP-APIGW-API-KEY": NAVER_SECRET_KEY
       }
     })
       .then(response => response.json())
@@ -50,11 +50,16 @@ const NaverMapComponent = () => {
           const lat = data.addresses[0].y;
           const lng = data.addresses[0].x;
           map.setCenter(new window.naver.maps.LatLng(lat, lng));
-          new window.naver.maps.Marker({
+
+          // ✅ 이전 검색 마커 제거
+          if (searchMarker) searchMarker.setMap(null);
+
+          const newMarker = new window.naver.maps.Marker({
             position: new window.naver.maps.LatLng(lat, lng),
             map: map,
             title: searchKeyword
           });
+          setSearchMarker(newMarker);
         } else {
           alert("검색 결과가 없습니다.");
         }
